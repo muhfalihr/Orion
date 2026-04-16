@@ -16,7 +16,13 @@ RUN apt-get update && apt-get install -y \
     bash \
     curl \
     ca-certificates \
+    python3 \
+    python3-pip \
+    binutils \
     && rm -rf /var/lib/apt/lists/*
+
+# Install uv (Fast Python package manager)
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
 # Install nfpm directly from GitHub Releases
 RUN NFPM_VERSION="2.41.2" && \
@@ -45,5 +51,4 @@ ENV NODE_ENV=production
 EXPOSE 3001
 
 # Command to run the application
-# Note: config.yaml should be mounted as a volume in production
 CMD ["node", "server/index.js"]
