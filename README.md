@@ -10,16 +10,20 @@ Orion is an automated packaging system that monitors Git repositories for new ta
 - **YAML Configuration**: Easy management of repositories and build settings.
 - **Automated Tag Monitoring**: Periodically polls repositories for new tags.
 - **Auto-Build**: Automatically triggers a build process when a new tag is detected.
+- **Multi-Language Build Support**: Pre-configured runtimes for **Python, Go, Rust, and Java**.
 - **Packaging Support**: Generates both `.deb` and `.rpm` packages using `nfpm`.
 - **Package Hosting**: Built packages are stored and served directly from the application.
 - **Production-Ready**: Uses shallow clones (`--depth 1`) for efficient builds.
 
-## 🛠 Tech Stack
+## 🛠 Tech Stack & Runtimes
 
-- **Frontend**: React (TypeScript), Vite, Vanilla CSS.
-- **Backend**: Node.js (Express), SQLite (`better-sqlite3`), `simple-git`, `js-yaml`.
+The Docker image comes pre-installed with the following compilers and runtimes to support virtually any project:
+
+- **Runtimes**: Node.js 20, Python 3, Go, Rust, OpenJDK (Java).
+- **Build Tools**: `uv` (Python), `build-essential`, `make`, `cmake`, `binutils`.
 - **Packaging**: `nfpm`.
-- **Deployment**: Docker (Multi-stage build).
+- **Backend**: Node.js (Express), SQLite (`better-sqlite3`), `simple-git`, `js-yaml`.
+- **Frontend**: React (TypeScript), Vite, Vanilla CSS.
 
 ---
 
