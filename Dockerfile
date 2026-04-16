@@ -10,7 +10,7 @@ RUN npm run build
 FROM node:20-slim
 WORKDIR /app
 
-# Install system dependencies
+# Install system dependencies & compilers
 RUN apt-get update && apt-get install -y \
     git \
     bash \
@@ -19,7 +19,16 @@ RUN apt-get update && apt-get install -y \
     python3 \
     python3-pip \
     binutils \
+    build-essential \
+    make \
+    cmake \
+    golang \
+    default-jdk \
     && rm -rf /var/lib/apt/lists/*
+
+# Install Rust
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+ENV PATH="/root/.cargo/bin:${PATH}"
 
 # Install uv (Fast Python package manager)
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
