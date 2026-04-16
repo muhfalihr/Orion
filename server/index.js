@@ -13,7 +13,7 @@ const pino = require('pino');
 const logger = pino({
   level: process.env.LOG_LEVEL || 'info',
   base: { service: 'orion-package-builder' },
-  timestamp: pino.stdTimeFunctions.isoTime
+  timestamp: pino.stdTimeFunctions.isoTime,
 });
 
 const app = express();
@@ -95,20 +95,26 @@ async function checkTags() {
   for (const repoCfg of repos) {
     const repoName = getRepoDisplayName(repoCfg);
     const authUrl = getAuthRepoUrl(repoCfg.url, repoCfg.token);
-    
+
     try {
       const remoteTags = await git.listRemote(['--tags', authUrl]);
-      const tags = remoteTags.split('\n')
-        .filter(line => line.includes('refs/tags/'))
-        .map(line => line.split('refs/tags/')[1].replace('^{}', ''))
+      const tags = remoteTags
+        .split('\n')
+        .filter((line) => line.includes('refs/tags/'))
+        .map((line) => line.split('refs/tags/')[1].replace('^{}', ''))
         .filter((v, i, a) => a.indexOf(v) === i && v.trim() !== '');
 
       for (const tag of tags) {
-        const exists = db.prepare('SELECT tag FROM tags WHERE repo = ? AND tag = ?').get(repoName, tag);
+        const exists = db
+          .prepare('SELECT tag FROM tags WHERE repo = ? AND tag = ?')
+          .get(repoName, tag);
         if (!exists) {
           logger.info({ repo: repoName, tag }, 'New tag found');
-          db.prepare('INSERT INTO tags (repo, tag, status) VALUES (?, ?, ?)')
-            .run(repoName, tag, 'pending');
+          db.prepare('INSERT INTO tags (repo, tag, status) VALUES (?, ?, ?)').run(
+            repoName,
+            tag,
+            'pending'
+          );
           triggerBuild(repoCfg, tag);
         }
       }
@@ -123,13 +129,15 @@ async function triggerBuild(repoCfg, tag) {
   const authUrl = getAuthRepoUrl(repoCfg.url, repoCfg.token);
   const buildDir = path.join(workDirBase, repoName, tag);
   const buildScriptRelPath = repoCfg.build_script || 'script/build_packages.sh';
-  
-  db.prepare('UPDATE tags SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE repo = ? AND tag = ?')
-    .run('building', repoName, tag);
+
+  db.prepare(
+    'UPDATE tags SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE repo = ? AND tag = ?'
+  ).run('building', repoName, tag);
 
   try {
-    if (!fs.existsSync(path.dirname(buildDir))) fs.mkdirSync(path.dirname(buildDir), { recursive: true });
-    
+    if (!fs.existsSync(path.dirname(buildDir)))
+      fs.mkdirSync(path.dirname(buildDir), { recursive: true });
+
     // Use Shallow Clone for performance and production use
     if (!fs.existsSync(path.join(buildDir, '.git'))) {
       logger.info({ repo: repoName, tag }, 'Shallow cloning tag');
@@ -157,16 +165,20 @@ async function triggerBuild(repoCfg, tag) {
     }
 
     logger.info({ repo: repoName, tag, script: buildScriptRelPath }, 'Executing build script');
-    
+
     if (!fs.existsSync(buildScriptPath)) {
       throw new Error(`Build script not found at ${buildScriptRelPath}`);
     }
 
     const buildProc = spawn('bash', [buildScriptRelPath], { cwd: buildDir });
-    
+
     let output = '';
-    buildProc.stdout.on('data', (data) => { output += data.toString(); });
-    buildProc.stderr.on('data', (data) => { output += data.toString(); });
+    buildProc.stdout.on('data', (data) => {
+      output += data.toString();
+    });
+    buildProc.stderr.on('data', (data) => {
+      output += data.toString();
+    });
 
     buildProc.on('close', (code) => {
       if (code === 0) {
@@ -175,43 +187,48 @@ async function triggerBuild(repoCfg, tag) {
         if (!fs.existsSync(buildsDest)) fs.mkdirSync(buildsDest, { recursive: true });
 
         const files = fs.readdirSync(distDir);
-        let debFile = '', rpmFile = '';
-        files.forEach(file => {
+        let debFile = '',
+          rpmFile = '';
+        files.forEach((file) => {
           const extension = path.extname(file);
           const newFileName = `${repoName}-${tag}${extension}`;
           const destPath = path.join(buildsDest, newFileName);
-          
+
           fs.copyFileSync(path.join(distDir, file), destPath);
-          
+
           if (extension === '.deb') debFile = `/builds/${repoName}/${tag}/${newFileName}`;
           if (extension === '.rpm') rpmFile = `/builds/${repoName}/${tag}/${newFileName}`;
         });
 
-        db.prepare('UPDATE tags SET status = ?, deb_path = ?, rpm_path = ?, updated_at = CURRENT_TIMESTAMP WHERE repo = ? AND tag = ?')
-          .run('success', debFile, rpmFile, repoName, tag);
+        db.prepare(
+          'UPDATE tags SET status = ?, deb_path = ?, rpm_path = ?, updated_at = CURRENT_TIMESTAMP WHERE repo = ? AND tag = ?'
+        ).run('success', debFile, rpmFile, repoName, tag);
         logger.info({ repo: repoName, tag }, 'Build successful');
       } else {
-        db.prepare('UPDATE tags SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE repo = ? AND tag = ?')
-          .run('failed', repoName, tag);
+        db.prepare(
+          'UPDATE tags SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE repo = ? AND tag = ?'
+        ).run('failed', repoName, tag);
         logger.error({ repo: repoName, tag, code, output: output.trim() }, 'Build failed');
       }
     });
-
   } catch (err) {
     logger.error({ repo: repoName, tag, err: err.message }, 'Runtime error during build');
-    db.prepare('UPDATE tags SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE repo = ? AND tag = ?')
-      .run('failed', repoName, tag);
+    db.prepare(
+      'UPDATE tags SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE repo = ? AND tag = ?'
+    ).run('failed', repoName, tag);
   }
 }
 
 // Routes
-app.get('/api/tags', (req, res) => res.json(db.prepare('SELECT * FROM tags ORDER BY updated_at DESC').all()));
+app.get('/api/tags', (req, res) =>
+  res.json(db.prepare('SELECT * FROM tags ORDER BY updated_at DESC').all())
+);
 
 app.post('/api/build/:repo/:tag', (req, res) => {
   const { repo, tag } = req.params;
   const repos = loadConfig();
-  const repoCfg = repos.find(r => getRepoDisplayName(r) === repo);
-  
+  const repoCfg = repos.find((r) => getRepoDisplayName(r) === repo);
+
   if (!repoCfg) return res.status(404).json({ error: 'Repo not found' });
 
   db.prepare('UPDATE tags SET status = ? WHERE repo = ? AND tag = ?').run('pending', repo, tag);

@@ -40,9 +40,9 @@ The Docker image comes pre-installed with the following compilers and runtimes t
 
 ### 1. Environment Variables (`.env`)
 
-| Variable | Description | Default |
-| :--- | :--- | :--- |
-| `PORT` | The port the server will listen on. | `3001` |
+| Variable           | Description                              | Default         |
+| :----------------- | :--------------------------------------- | :-------------- |
+| `PORT`             | The port the server will listen on.      | `3001`          |
 | `POLLING_INTERVAL` | Time between tag checks in milliseconds. | `60000` (1 min) |
 
 ### 2. Repository Configuration (`config.yaml`)
@@ -51,10 +51,10 @@ Define your repositories in `config.yaml`:
 
 ```yaml
 repositories:
-  - name: "my-project"               # Display name (optional)
-    url: "https://github.com/u/p.git" # Git repository URL
-    token: "your-git-token"          # Access token for auth
-    build_script: "build.sh"         # Path to script inside repo
+  - name: 'my-project' # Display name (optional)
+    url: 'https://github.com/u/p.git' # Git repository URL
+    token: 'your-git-token' # Access token for auth
+    build_script: 'build.sh' # Path to script inside repo
 ```
 
 ---
@@ -73,6 +73,7 @@ repositories:
 ### Using Docker CLI
 
 1.  **Build the image:**
+
     ```bash
     docker build -t orion-builder .
     ```

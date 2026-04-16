@@ -1,0 +1,12 @@
+node_modules
+dist
+builds
+workdir
+data
+package-lock.json
+.env
+.env.example
+*.deb
+*.rpm
+client/node_modules
+client/dist
