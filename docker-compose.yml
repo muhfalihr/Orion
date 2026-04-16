@@ -1,0 +1,24 @@
+services:
+  orion:
+    build: .
+    image: muhfalihr/orion:latest
+    container_name: orion-app
+    restart: unless-stopped
+    ports:
+      - "3001:3001"
+    env_file:
+      - .env
+    volumes:
+      # Mount the repository configuration
+      - ./config.yaml:/app/config.yaml:ro
+      # Persist the SQLite database
+      - orion_db:/app
+      # Persist the built packages
+      - orion_builds:/app/builds
+      # Optional: Persist workdir to speed up subsequent builds of same tag
+      - orion_workdir:/app/workdir
+
+volumes:
+  orion_db:
+  orion_builds:
+  orion_workdir:

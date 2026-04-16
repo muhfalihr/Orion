@@ -55,7 +55,18 @@ repositories:
 
 ---
 
-## 📦 Deployment (Docker)
+## 📦 Deployment
+
+### Using Docker Compose (Recommended)
+
+1.  **Prepare configuration**: Ensure `.env` and `config.yaml` are ready.
+2.  **Start the application**:
+    ```bash
+    docker-compose up -d
+    ```
+    This will automatically build the image and start the container with persistent volumes for your database and built packages.
+
+### Using Docker CLI
 
 1.  **Build the image:**
     ```bash
@@ -67,7 +78,7 @@ repositories:
     docker run -d \
       -p 3001:3001 \
       --env-file .env \
-      -v $(pwd)/config.yaml:/app/config.yaml \
+      -v $(pwd)/config.yaml:/app/config.yaml:ro \
       -v orion_data:/app/builds \
       --name orion-app \
       orion-builder
