@@ -1,8 +1,6 @@
-# 🌌 Orion Package Manager
+# Orion Package Manager
 
 Orion is an automated packaging system that monitors Git repositories for new tags, builds Debian (`.deb`) and RPM (`.rpm`) packages using `nfpm`, and serves them through a minimalist Web UI.
-
-![Orion UI Placeholder](https://via.placeholder.com/800x400?text=Orion+Package+Manager+Dashboard)
 
 ## 🚀 Features
 
@@ -47,15 +45,18 @@ The Docker image comes pre-installed with the following compilers and runtimes t
 
 ### 2. Repository Configuration (`config.yaml`)
 
-Define your repositories in `config.yaml`:
+Define your repositories in `config.yaml`. All properties below are **mandatory**:
 
 ```yaml
 repositories:
-  - name: 'my-project' # Display name (optional)
+  - name: 'my-project' # Display name and directory name
     url: 'https://github.com/u/p.git' # Git repository URL
-    token: 'your-git-token' # Access token for auth
-    build_script: 'build.sh' # Path to script inside repo
+    token: 'your-git-token' # Access token for auth (e.g. GitHub PAT or GitLab Token)
+    build_script: 'script/build.sh' # Path to build script inside the repository
+    nfpm_config: 'packaging/nfpm.yaml' # Path to nfpm configuration file inside the repository
 ```
+
+> **Note**: If any mandatory configuration is missing, the repository will be skipped or the build will fail with a clear error log.
 
 ---
 
