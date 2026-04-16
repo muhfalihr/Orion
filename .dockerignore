@@ -1,0 +1,9 @@
+node_modules
+client/node_modules
+dist
+client/dist
+workdir
+builds
+builder.db
+.env
+.git

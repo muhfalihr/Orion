@@ -1,0 +1,12 @@
+node_modules
+dist
+builder.db
+workdir
+repository-source
+builds/*
+!builds/.gitkeep
+.env
+client/node_modules
+client/dist
+GEMINI.md
+config.yaml
