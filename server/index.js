@@ -10,7 +10,15 @@ const yaml = require('js-yaml');
 
 const app = express();
 const port = process.env.PORT || 3001;
-const db = new Database('builder.db');
+const dbPath = process.env.DATABASE_URL || path.join(__dirname, '../data/builder.db');
+
+// Ensure data directory exists
+const dataDir = path.dirname(dbPath);
+if (!fs.existsSync(dataDir)) {
+  fs.mkdirSync(dataDir, { recursive: true });
+}
+
+const db = new Database(dbPath);
 
 // Configuration
 const POLLING_INTERVAL = parseInt(process.env.POLLING_INTERVAL || '60000');

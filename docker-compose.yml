@@ -12,7 +12,7 @@ services:
       # Mount the repository configuration
       - ./config.yaml:/app/config.yaml:ro
       # Persist the SQLite database
-      - orion_db:/app
+      - orion_db:/app/data
       # Persist the built packages
       - orion_builds:/app/builds
       # Optional: Persist workdir to speed up subsequent builds of same tag

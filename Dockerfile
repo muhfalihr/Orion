@@ -35,7 +35,7 @@ COPY server/ ./server/
 COPY --from=frontend-builder /app/client/dist ./public
 
 # Create necessary directories
-RUN mkdir -p workdir builds
+RUN mkdir -p workdir builds data
 
 # Environment variables
 ENV PORT=3001
