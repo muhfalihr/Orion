@@ -32,6 +32,8 @@ ENV PATH="/root/.cargo/bin:${PATH}"
 
 # Install uv (Fast Python package manager)
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+ENV UV_SYSTEM_PYTHON=1
+ENV UV_BREAK_SYSTEM_PACKAGES=1
 
 # Install nfpm directly from GitHub Releases
 RUN NFPM_VERSION="2.41.2" && \

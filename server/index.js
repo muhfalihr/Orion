@@ -7,6 +7,14 @@ const fs = require('fs');
 const path = require('path');
 const { spawn } = require('child_process');
 const yaml = require('js-yaml');
+const pino = require('pino');
+
+// Initialize Logger
+const logger = pino({
+  level: process.env.LOG_LEVEL || 'info',
+  base: { service: 'orion-package-builder' },
+  timestamp: pino.stdTimeFunctions.isoTime
+});
 
 const app = express();
 const port = process.env.PORT || 3001;
@@ -32,7 +40,7 @@ function loadConfig() {
       return data.repositories || [];
     }
   } catch (e) {
-    console.error('Error loading config.yaml:', e.message);
+    logger.error({ err: e.message }, 'Error loading config.yaml');
   }
   return [];
 }
@@ -82,7 +90,7 @@ const workDirBase = path.join(__dirname, '../workdir');
 
 async function checkTags() {
   const repos = loadConfig();
-  console.log(`Checking for new tags in ${repos.length} repositories...`);
+  logger.info({ count: repos.length }, 'Checking for new tags in repositories');
 
   for (const repoCfg of repos) {
     const repoName = getRepoDisplayName(repoCfg);
@@ -98,14 +106,14 @@ async function checkTags() {
       for (const tag of tags) {
         const exists = db.prepare('SELECT tag FROM tags WHERE repo = ? AND tag = ?').get(repoName, tag);
         if (!exists) {
-          console.log(`[${repoName}] New tag found: ${tag}`);
+          logger.info({ repo: repoName, tag }, 'New tag found');
           db.prepare('INSERT INTO tags (repo, tag, status) VALUES (?, ?, ?)')
             .run(repoName, tag, 'pending');
           triggerBuild(repoCfg, tag);
         }
       }
     } catch (err) {
-      console.error(`[${repoName}] Git list-remote error:`, err.message);
+      logger.error({ repo: repoName, err: err.message }, 'Git list-remote error');
     }
   }
 }
@@ -124,7 +132,7 @@ async function triggerBuild(repoCfg, tag) {
     
     // Use Shallow Clone for performance and production use
     if (!fs.existsSync(path.join(buildDir, '.git'))) {
-      console.log(`[${repoName}] Shallow cloning tag ${tag}...`);
+      logger.info({ repo: repoName, tag }, 'Shallow cloning tag');
       await git.clone(authUrl, buildDir, ['--depth', '1', '--branch', tag]);
     } else {
       const localGit = simpleGit(buildDir);
@@ -148,9 +156,18 @@ async function triggerBuild(repoCfg, tag) {
       fs.writeFileSync(nfpmPath, content);
     }
 
-    console.log(`[${repoName}] Executing build script (${buildScriptRelPath}) for ${tag}...`);
+    logger.info({ repo: repoName, tag, script: buildScriptRelPath }, 'Executing build script');
+    
+    if (!fs.existsSync(buildScriptPath)) {
+      throw new Error(`Build script not found at ${buildScriptRelPath}`);
+    }
+
     const buildProc = spawn('bash', [buildScriptRelPath], { cwd: buildDir });
     
+    let output = '';
+    buildProc.stdout.on('data', (data) => { output += data.toString(); });
+    buildProc.stderr.on('data', (data) => { output += data.toString(); });
+
     buildProc.on('close', (code) => {
       if (code === 0) {
         const distDir = path.join(buildDir, 'dist');
@@ -172,15 +189,16 @@ async function triggerBuild(repoCfg, tag) {
 
         db.prepare('UPDATE tags SET status = ?, deb_path = ?, rpm_path = ?, updated_at = CURRENT_TIMESTAMP WHERE repo = ? AND tag = ?')
           .run('success', debFile, rpmFile, repoName, tag);
+        logger.info({ repo: repoName, tag }, 'Build successful');
       } else {
         db.prepare('UPDATE tags SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE repo = ? AND tag = ?')
           .run('failed', repoName, tag);
-        console.error(`[${repoName}] Build failed for ${tag} (exit code: ${code})`);
+        logger.error({ repo: repoName, tag, code, output: output.trim() }, 'Build failed');
       }
     });
 
   } catch (err) {
-    console.error(`[${repoName}] Runtime error for ${tag}:`, err.message);
+    logger.error({ repo: repoName, tag, err: err.message }, 'Runtime error during build');
     db.prepare('UPDATE tags SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE repo = ? AND tag = ?')
       .run('failed', repoName, tag);
   }
@@ -209,4 +227,6 @@ app.use((req, res) => {
 setInterval(checkTags, POLLING_INTERVAL);
 checkTags();
 
-app.listen(port, () => console.log(`Package Builder Backend active on port ${port}`));
+app.listen(port, '0.0.0.0', () => {
+  logger.info({ url: `http://0.0.0.0:${port}` }, 'Package Builder Backend active');
+});

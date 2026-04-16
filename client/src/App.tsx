@@ -18,15 +18,13 @@ interface RepoGroup {
   [repo: string]: GroupedTags;
 }
 
-const API_BASE = 'http://localhost:3001';
-
 function App() {
   const [tags, setTags] = useState<Tag[]>([]);
   const [expandedFolders, setExpandedFolders] = useState<Record<string, boolean>>({});
 
   const fetchTags = async () => {
     try {
-      const res = await axios.get(`${API_BASE}/api/tags`);
+      const res = await axios.get('/api/tags');
       setTags(res.data);
     } catch (err) {
       console.error('API Error', err);
@@ -116,7 +114,7 @@ function App() {
                           </div>
                           <div style={{ display: 'flex', gap: '16px' }}>
                             <a 
-                              href={`${API_BASE}${item.deb_path}`} 
+                              href={item.deb_path} 
                               style={{ color: '#0000EE', textDecoration: 'none', fontSize: '13px' }}
                               onMouseOver={(e) => e.currentTarget.style.textDecoration = 'underline'}
                               onMouseOut={(e) => e.currentTarget.style.textDecoration = 'none'}
@@ -125,7 +123,7 @@ function App() {
                               debian_package
                             </a>
                             <a 
-                              href={`${API_BASE}${item.rpm_path}`} 
+                              href={item.rpm_path} 
                               style={{ color: '#0000EE', textDecoration: 'none', fontSize: '13px' }}
                               onMouseOver={(e) => e.currentTarget.style.textDecoration = 'underline'}
                               onMouseOut={(e) => e.currentTarget.style.textDecoration = 'none'}
