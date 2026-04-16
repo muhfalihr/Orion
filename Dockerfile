@@ -18,8 +18,11 @@ RUN apt-get update && apt-get install -y \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-# Install nfpm
-RUN curl -sfL https://gobinaries.com/goreleaser/nfpm | sh
+# Install nfpm directly from GitHub Releases
+RUN NFPM_VERSION="2.41.2" && \
+    curl -sfL -o nfpm.deb "https://github.com/goreleaser/nfpm/releases/download/v${NFPM_VERSION}/nfpm_${NFPM_VERSION}_amd64.deb" && \
+    dpkg -i nfpm.deb && \
+    rm nfpm.deb
 
 # Copy root package files
 COPY package*.json ./
