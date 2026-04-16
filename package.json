@@ -10,17 +10,18 @@
   },
   "keywords": [],
   "author": "",
-  "license": "ISC",
+  "license": "MIT",
   "type": "commonjs",
   "dependencies": {
     "better-sqlite3": "^12.9.0",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
-    "js-yaml": "^4.1.1",
+    "js-yaml": "^4.1.0",
     "simple-git": "^3.36.0"
   },
   "devDependencies": {
     "concurrently": "^9.2.1"
   }
 }
+

@@ -106,4 +106,4 @@ repositories:
 
 ## 📄 License
 
-ISC License.
+MIT License.
