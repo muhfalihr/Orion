@@ -213,7 +213,9 @@ function App() {
                                   onMouseOver={(e) =>
                                     (e.currentTarget.style.textDecoration = 'underline')
                                   }
-                                  onMouseOut={(e) => (e.currentTarget.style.textDecoration = 'none')}
+                                  onMouseOut={(e) =>
+                                    (e.currentTarget.style.textDecoration = 'none')
+                                  }
                                   download
                                 >
                                   debian_package
@@ -230,7 +232,9 @@ function App() {
                                   onMouseOver={(e) =>
                                     (e.currentTarget.style.textDecoration = 'underline')
                                   }
-                                  onMouseOut={(e) => (e.currentTarget.style.textDecoration = 'none')}
+                                  onMouseOut={(e) =>
+                                    (e.currentTarget.style.textDecoration = 'none')
+                                  }
                                   download
                                 >
                                   redhat_package
@@ -238,10 +242,14 @@ function App() {
                               )}
                               {item.docker_image && (
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                  <span style={{ fontSize: '13px', color: '#444' }}>🐳 {item.docker_image}</span>
+                                  <span style={{ fontSize: '13px', color: '#444' }}>
+                                    🐳 {item.docker_image}
+                                  </span>
                                   <button
                                     onClick={() => {
-                                      navigator.clipboard.writeText(`docker pull ${item.docker_image}`);
+                                      navigator.clipboard.writeText(
+                                        `docker pull ${item.docker_image}`
+                                      );
                                       alert('Copied pull command!');
                                     }}
                                     style={{
@@ -250,7 +258,7 @@ function App() {
                                       cursor: 'pointer',
                                       background: '#f0f0f0',
                                       border: '1px solid #ddd',
-                                      borderRadius: '4px'
+                                      borderRadius: '4px',
                                     }}
                                   >
                                     copy

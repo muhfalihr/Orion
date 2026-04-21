@@ -67,6 +67,8 @@ RUN mkdir -p workdir builds data
 # Environment variables
 ENV PORT=3001
 ENV NODE_ENV=production
+# Pastikan DOCKER_HOST mengarah ke socket default
+ENV DOCKER_HOST=unix:///var/run/docker.sock
 
 # Expose the application port
 EXPOSE 3001

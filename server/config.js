@@ -20,9 +20,7 @@ function loadConfig() {
       return repos
         .map((repo) => {
           // Interpolate env vars in the whole repo config
-          const interpolatedRepo = JSON.parse(
-            interpolateEnv(JSON.stringify(repo))
-          );
+          const interpolatedRepo = JSON.parse(interpolateEnv(JSON.stringify(repo)));
           return interpolatedRepo;
         })
         .filter((repo) => {

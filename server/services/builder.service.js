@@ -93,7 +93,9 @@ async function triggerBuild(repoCfg, tag) {
       await localGit.checkout(tag);
     }
 
-    let debFile = '', rpmFile = '', dockerImage = '';
+    let debFile = '',
+      rpmFile = '',
+      dockerImage = '';
 
     // 1. Package Build Phase
     if (repoCfg.build_script && repoCfg.nfpm_config) {
@@ -135,39 +137,62 @@ async function triggerBuild(repoCfg, tag) {
     // 2. Docker Build Phase
     if (repoCfg.docker) {
       const d = repoCfg.docker;
-      const cleanTag = tag.replace(/^v/, '');
+      const cleanTag = tag.match(/^v\d/) ? tag.replace(/^v/, '') : tag;
       const registry = d.registry || 'docker.io';
-      const fullImage = `${d.image}:${cleanTag}`;
-      
+      const fullImage = `${registry}/${d.image}:${cleanTag}`;
+
       // Docker Login
       if (d.username && d.password) {
         logger.info({ repo: repoName, registry }, 'Logging into Docker registry');
-        const loginProc = spawn('docker', ['login', '--username', d.username, '--password-stdin', registry]);
+        const loginProc = spawn('docker', [
+          'login',
+          '--username',
+          d.username,
+          '--password-stdin',
+          registry,
+        ]);
         loginProc.stdin.write(d.password);
         loginProc.stdin.end();
-        
+
         await new Promise((resolve, reject) => {
-          loginProc.on('close', (code) => code === 0 ? resolve() : reject(new Error(`Docker login failed with code ${code}`)));
+          loginProc.on('close', (code) =>
+            code === 0 ? resolve() : reject(new Error(`Docker login failed with code ${code}`))
+          );
         });
       }
 
       if (d.strategy === 'script' && d.script) {
-        await runCommand('bash', [d.script], { 
-          cwd: buildDir,
-          env: { 
-            ...process.env, 
-            DOCKER_USER: d.username, 
-            DOCKER_PASSWORD: d.password, 
-            DOCKER_REGISTRY: registry,
-            IMAGE_NAME: d.image,
-            TAG: cleanTag 
-          } 
-        }, `[${repoName} docker-script]`);
+        await runCommand(
+          'bash',
+          [d.script],
+          {
+            cwd: buildDir,
+            env: {
+              ...process.env,
+              DOCKER_USER: d.username,
+              DOCKER_PASSWORD: d.password,
+              DOCKER_REGISTRY: registry,
+              IMAGE_NAME: d.image,
+              TAG: cleanTag,
+            },
+          },
+          `[${repoName} docker-script]`
+        );
       } else {
         const dockerfile = d.dockerfile || 'Dockerfile';
         const context = d.context || '.';
-        await runCommand('docker', ['build', '-t', fullImage, '-f', dockerfile, context], { cwd: buildDir }, `[${repoName} docker-build]`);
-        await runCommand('docker', ['push', fullImage], { cwd: buildDir }, `[${repoName} docker-push]`);
+        await runCommand(
+          'docker',
+          ['build', '-t', fullImage, '-f', dockerfile, context],
+          { cwd: buildDir },
+          `[${repoName} docker-build]`
+        );
+        await runCommand(
+          'docker',
+          ['push', fullImage],
+          { cwd: buildDir },
+          `[${repoName} docker-push]`
+        );
       }
       dockerImage = fullImage;
     }
@@ -176,7 +201,6 @@ async function triggerBuild(repoCfg, tag) {
       'UPDATE tags SET status = ?, deb_path = ?, rpm_path = ?, docker_image = ?, updated_at = CURRENT_TIMESTAMP WHERE repo = ? AND tag = ?'
     ).run('success', debFile, rpmFile, dockerImage, repoName, tag);
     logger.info({ repo: repoName, tag }, 'Build successful');
-
   } catch (err) {
     logger.error({ repo: repoName, tag, err: err.message, output: err.output }, 'Build failed');
     db.prepare(

@@ -55,11 +55,11 @@ repositories:
   - name: 'my-project'
     url: 'https://github.com/user/project.git'
     token: 'your-git-token'
-    
+
     # Optional: OS Package Build (deb/rpm)
     build_script: 'scripts/build.sh'
     nfpm_config: 'nfpm.yaml'
-    
+
     # Optional: Docker Build & Push
     docker:
       image: 'user/project' # Repository name
@@ -84,12 +84,29 @@ To enable Docker builds inside Orion, you **must** mount the Docker socket.
 services:
   orion:
     build: .
+    image: muhfalihr/orion:latest
+    container_name: orion-app
+    restart: unless-stopped
+    ports:
+      - '3001:3001'
+    env_file:
+      - .env
     volumes:
+      # Mount Docker socket to enable Docker builds
       - /var/run/docker.sock:/var/run/docker.sock
-      - ./data:/app/data
-      - ./builds:/app/builds
-      - ./config.yaml:/app/config.yaml
-    env_file: .env
+      # Mount the repository configuration
+      - ./config.yaml:/app/config.yaml:ro
+      # Persist the SQLite database
+      - orion_db:/app/data
+      # Persist the built packages
+      - orion_builds:/app/builds
+      # Optional: Persist workdir
+      - orion_workdir:/app/workdir
+
+volumes:
+  orion_db:
+  orion_builds:
+  orion_workdir:
 ```
 
 1.  **Start the application**:
