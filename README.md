@@ -1,16 +1,16 @@
-# Orion Package Manager
+# Orion Package Manager & Image Distributor
 
-Orion is an automated packaging system that monitors Git repositories for new tags, builds Debian (`.deb`) and RPM (`.rpm`) packages using `nfpm`, and serves them through a minimalist Web UI.
+Orion is an automated delivery system that monitors Git repositories for new tags, builds Debian (`.deb`) and RPM (`.rpm`) packages, and/or builds and pushes Docker images to any registry.
 
 ## 🚀 Features
 
 - **Multi-Repository Support**: Monitor multiple Git repositories simultaneously.
-- **YAML Configuration**: Easy management of repositories and build settings.
+- **YAML Configuration**: Flexible management of repositories and build settings.
 - **Automated Tag Monitoring**: Periodically polls repositories for new tags.
-- **Auto-Build**: Automatically triggers a build process when a new tag is detected.
+- **Hybrid Build Pipeline**: Support for OS packages (`nfpm`), Docker images, or both.
+- **Docker Integration**: Built-in support for `docker build` and `docker push` with registry authentication.
 - **Multi-Language Build Support**: Pre-configured runtimes for **Python, Go, Rust, and Java**.
-- **Packaging Support**: Generates both `.deb` and `.rpm` packages using `nfpm`.
-- **Package Hosting**: Built packages are stored and served directly from the application.
+- **Package & Image Hosting**: OS packages are served directly via a minimalist Web UI, and Docker images are pushed to your preferred registry.
 - **Production-Ready**: Uses shallow clones (`--depth 1`) for efficient builds.
 
 ## 🛠 Tech Stack & Runtimes
@@ -18,6 +18,7 @@ Orion is an automated packaging system that monitors Git repositories for new ta
 The Docker image comes pre-installed with the following compilers and runtimes to support virtually any project:
 
 - **Runtimes**: Node.js 20, Python 3, Go, Rust, OpenJDK (Java).
+- **Docker CLI**: For building and pushing container images.
 - **Build Tools**: `uv` (Python), `build-essential`, `make`, `cmake`, `binutils`.
 - **Packaging**: `nfpm`.
 - **Backend**: Node.js (Express), SQLite (`better-sqlite3`), `simple-git`, `js-yaml`.
@@ -27,9 +28,9 @@ The Docker image comes pre-installed with the following compilers and runtimes t
 
 ## 📋 Prerequisites
 
-- **Docker**: Recommended for production.
+- **Docker**: Required for both hosting Orion and executing Docker builds within it.
 - **Node.js 20+**: If running locally.
-- **nfpm**: Required for local builds.
+- **nfpm**: Required for local OS package builds.
 - **Git**: Required for repository cloning.
 
 ---
@@ -45,18 +46,31 @@ The Docker image comes pre-installed with the following compilers and runtimes t
 
 ### 2. Repository Configuration (`config.yaml`)
 
-Define your repositories in `config.yaml`. All properties below are **mandatory**:
+Define your repositories in `config.yaml`. Orion supports environment variable interpolation (e.g., `${DOCKER_PASSWORD}`) for sensitive values.
+
+A repository must have a `url` and `token`, plus at least one build configuration (either OS packages or Docker).
 
 ```yaml
 repositories:
-  - name: 'my-project' # Display name and directory name
-    url: 'https://github.com/u/p.git' # Git repository URL
-    token: 'your-git-token' # Access token for auth (e.g. GitHub PAT or GitLab Token)
-    build_script: 'script/build.sh' # Path to build script inside the repository
-    nfpm_config: 'packaging/nfpm.yaml' # Path to nfpm configuration file inside the repository
+  - name: 'my-project'
+    url: 'https://github.com/user/project.git'
+    token: 'your-git-token'
+    
+    # Optional: OS Package Build (deb/rpm)
+    build_script: 'scripts/build.sh'
+    nfpm_config: 'nfpm.yaml'
+    
+    # Optional: Docker Build & Push
+    docker:
+      image: 'user/project' # Repository name
+      registry: 'docker.io' # Optional, defaults to docker.io
+      username: '${DOCKER_USER}' # Supports env interpolation
+      password: '${DOCKER_PASSWORD}'
+      strategy: 'direct' # 'direct' (standard build/push) or 'script'
+      dockerfile: 'Dockerfile' # Optional, defaults to 'Dockerfile'
+      context: '.' # Optional, defaults to '.'
+      # script: 'scripts/docker.sh' # Required if strategy is 'script'
 ```
-
-> **Note**: If any mandatory configuration is missing, the repository will be skipped or the build will fail with a clear error log.
 
 ---
 
@@ -64,41 +78,35 @@ repositories:
 
 ### Using Docker Compose (Recommended)
 
-1.  **Prepare configuration**: Ensure `.env` and `config.yaml` are ready.
-2.  **Start the application**:
+To enable Docker builds inside Orion, you **must** mount the Docker socket.
+
+```yaml
+services:
+  orion:
+    build: .
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./data:/app/data
+      - ./builds:/app/builds
+      - ./config.yaml:/app/config.yaml
+    env_file: .env
+```
+
+1.  **Start the application**:
     ```bash
     docker-compose up -d
-    ```
-    This will automatically build the image and start the container with persistent volumes for your database and built packages.
-
-### Using Docker CLI
-
-1.  **Build the image:**
-
-    ```bash
-    docker build -t orion-builder .
-    ```
-
-2.  **Run the container:**
-    ```bash
-    docker run -d \
-      -p 3001:3001 \
-      --env-file .env \
-      -v $(pwd)/config.yaml:/app/config.yaml:ro \
-      -v orion_data:/app/builds \
-      --name orion-app \
-      orion-builder
     ```
 
 ---
 
 ## 🔄 Workflow
 
-1.  **Polling**: The server reads `config.yaml` and checks all repositories every `POLLING_INTERVAL`.
+1.  **Polling**: The server checks all repositories every `POLLING_INTERVAL`.
 2.  **Detection**: New tags are added to SQLite with `pending` status.
-3.  **Cloning**: Uses `git clone --depth 1` for fast, lightweight retrieval.
-4.  **Building**: Executes the configured `build_script` and moves results to `dist/`.
-5.  **Serving**: Packages are hosted hierarchicaly: `/builds/:repo/:tag/:file`.
+3.  **Cloning**: Uses `git clone --depth 1` for fast retrieval.
+4.  **Package Phase**: If `build_script` is present, it builds `.deb`/`.rpm` packages.
+5.  **Docker Phase**: If `docker` config is present, it authenticates, builds, and pushes the image.
+6.  **Serving**: OS packages are hosted at `/builds/:repo/:tag/`, and Docker pull commands are displayed in the UI.
 
 ---
 

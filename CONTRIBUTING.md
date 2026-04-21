@@ -7,17 +7,20 @@ Thank you for your interest in contributing to Orion Package Manager! This docum
 1.  **Fork the repository**: Click the "Fork" button on the top right of the repository page.
 
 2.  **Clone your fork**:
+
     ```bash
     git clone https://git.blackeye.id/your-username/orion.git
     cd orion
     ```
 
 3.  **Add upstream remote**:
+
     ```bash
     git remote add upstream https://git.blackeye.id/sre-toolkit/tool/orion.git
     ```
 
 4.  **Install dependencies**:
+
     ```bash
     npm install
     cd client && npm install

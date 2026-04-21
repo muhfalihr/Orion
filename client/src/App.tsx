@@ -7,6 +7,7 @@ interface Tag {
   status: 'pending' | 'building' | 'success' | 'failed';
   deb_path: string;
   rpm_path: string;
+  docker_image?: string;
   updated_at: string;
 }
 
@@ -200,37 +201,62 @@ function App() {
                             <div style={{ fontSize: '12px', color: '#888', marginBottom: '4px' }}>
                               {item.tag} — {new Date(item.updated_at).toLocaleDateString()}
                             </div>
-                            <div style={{ display: 'flex', gap: '16px' }}>
-                              <a
-                                href={item.deb_path}
-                                style={{
-                                  color: '#0000EE',
-                                  textDecoration: 'none',
-                                  fontSize: '13px',
-                                }}
-                                onMouseOver={(e) =>
-                                  (e.currentTarget.style.textDecoration = 'underline')
-                                }
-                                onMouseOut={(e) => (e.currentTarget.style.textDecoration = 'none')}
-                                download
-                              >
-                                debian_package
-                              </a>
-                              <a
-                                href={item.rpm_path}
-                                style={{
-                                  color: '#0000EE',
-                                  textDecoration: 'none',
-                                  fontSize: '13px',
-                                }}
-                                onMouseOver={(e) =>
-                                  (e.currentTarget.style.textDecoration = 'underline')
-                                }
-                                onMouseOut={(e) => (e.currentTarget.style.textDecoration = 'none')}
-                                download
-                              >
-                                redhat_package
-                              </a>
+                            <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+                              {item.deb_path && (
+                                <a
+                                  href={item.deb_path}
+                                  style={{
+                                    color: '#0000EE',
+                                    textDecoration: 'none',
+                                    fontSize: '13px',
+                                  }}
+                                  onMouseOver={(e) =>
+                                    (e.currentTarget.style.textDecoration = 'underline')
+                                  }
+                                  onMouseOut={(e) => (e.currentTarget.style.textDecoration = 'none')}
+                                  download
+                                >
+                                  debian_package
+                                </a>
+                              )}
+                              {item.rpm_path && (
+                                <a
+                                  href={item.rpm_path}
+                                  style={{
+                                    color: '#0000EE',
+                                    textDecoration: 'none',
+                                    fontSize: '13px',
+                                  }}
+                                  onMouseOver={(e) =>
+                                    (e.currentTarget.style.textDecoration = 'underline')
+                                  }
+                                  onMouseOut={(e) => (e.currentTarget.style.textDecoration = 'none')}
+                                  download
+                                >
+                                  redhat_package
+                                </a>
+                              )}
+                              {item.docker_image && (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                  <span style={{ fontSize: '13px', color: '#444' }}>🐳 {item.docker_image}</span>
+                                  <button
+                                    onClick={() => {
+                                      navigator.clipboard.writeText(`docker pull ${item.docker_image}`);
+                                      alert('Copied pull command!');
+                                    }}
+                                    style={{
+                                      padding: '2px 6px',
+                                      fontSize: '10px',
+                                      cursor: 'pointer',
+                                      background: '#f0f0f0',
+                                      border: '1px solid #ddd',
+                                      borderRadius: '4px'
+                                    }}
+                                  >
+                                    copy
+                                  </button>
+                                </div>
+                              )}
                             </div>
                           </li>
                         ))}

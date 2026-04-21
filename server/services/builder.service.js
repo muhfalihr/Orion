@@ -45,31 +45,35 @@ async function checkTags() {
   }
 }
 
+async function runCommand(command, args, options, logPrefix) {
+  return new Promise((resolve, reject) => {
+    logger.info(`${logPrefix}: Executing ${command} ${args.join(' ')}`);
+    const proc = spawn(command, args, options);
+    let output = '';
+
+    proc.stdout.on('data', (data) => {
+      output += data.toString();
+    });
+    proc.stderr.on('data', (data) => {
+      output += data.toString();
+    });
+
+    proc.on('close', (code) => {
+      if (code === 0) {
+        resolve(output);
+      } else {
+        const error = new Error(`Command failed with code ${code}`);
+        error.output = output;
+        reject(error);
+      }
+    });
+  });
+}
+
 async function triggerBuild(repoCfg, tag) {
   const repoName = getRepoDisplayName(repoCfg);
   const authUrl = getAuthRepoUrl(repoCfg.url, repoCfg.token);
   const buildDir = path.join(workDirBase, repoName, tag);
-  
-  if (!repoCfg.build_script) {
-    const error = `Missing required config: build_script for repo ${repoName}`;
-    logger.error({ repo: repoName, tag }, error);
-    db.prepare(
-      'UPDATE tags SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE repo = ? AND tag = ?'
-    ).run('failed', repoName, tag);
-    return;
-  }
-
-  if (!repoCfg.nfpm_config) {
-    const error = `Missing required config: nfpm_config for repo ${repoName}`;
-    logger.error({ repo: repoName, tag }, error);
-    db.prepare(
-      'UPDATE tags SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE repo = ? AND tag = ?'
-    ).run('failed', repoName, tag);
-    return;
-  }
-
-  const buildScriptRelPath = repoCfg.build_script;
-  const nfpmRelPath = repoCfg.nfpm_config;
 
   db.prepare(
     'UPDATE tags SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE repo = ? AND tag = ?'
@@ -79,7 +83,7 @@ async function triggerBuild(repoCfg, tag) {
     if (!fs.existsSync(path.dirname(buildDir)))
       fs.mkdirSync(path.dirname(buildDir), { recursive: true });
 
-    // Use Shallow Clone for performance and production use
+    // Shallow Clone
     if (!fs.existsSync(path.join(buildDir, '.git'))) {
       logger.info({ repo: repoName, tag }, 'Shallow cloning tag');
       await git.clone(authUrl, buildDir, ['--depth', '1', '--branch', tag]);
@@ -89,71 +93,92 @@ async function triggerBuild(repoCfg, tag) {
       await localGit.checkout(tag);
     }
 
-    // Dynamic versioning
-    const buildScriptPath = path.join(buildDir, buildScriptRelPath);
-    const nfpmPath = path.join(buildDir, nfpmRelPath);
+    let debFile = '', rpmFile = '', dockerImage = '';
 
-    if (fs.existsSync(buildScriptPath)) {
-      let content = fs.readFileSync(buildScriptPath, 'utf8');
-      content = content.replace(/VERSION=".*"/, `VERSION="${tag.replace(/^v/, '')}"`);
-      fs.writeFileSync(buildScriptPath, content);
-    }
+    // 1. Package Build Phase
+    if (repoCfg.build_script && repoCfg.nfpm_config) {
+      const buildScriptRelPath = repoCfg.build_script;
+      const nfpmRelPath = repoCfg.nfpm_config;
+      const buildScriptPath = path.join(buildDir, buildScriptRelPath);
+      const nfpmPath = path.join(buildDir, nfpmRelPath);
 
-    if (fs.existsSync(nfpmPath)) {
-      let content = fs.readFileSync(nfpmPath, 'utf8');
-      content = content.replace(/version: ".*"/, `version: "${tag.replace(/^v/, '')}"`);
-      fs.writeFileSync(nfpmPath, content);
-    }
-
-    logger.info({ repo: repoName, tag, script: buildScriptRelPath }, 'Executing build script');
-
-    if (!fs.existsSync(buildScriptPath)) {
-      throw new Error(`Build script not found at ${buildScriptRelPath}`);
-    }
-
-    const buildProc = spawn('bash', [buildScriptRelPath], { cwd: buildDir });
-
-    let output = '';
-    buildProc.stdout.on('data', (data) => {
-      output += data.toString();
-    });
-    buildProc.stderr.on('data', (data) => {
-      output += data.toString();
-    });
-
-    buildProc.on('close', (code) => {
-      if (code === 0) {
-        const distDir = path.join(buildDir, 'dist');
-        const buildsDest = path.join(__dirname, '../../builds', repoName, tag);
-        if (!fs.existsSync(buildsDest)) fs.mkdirSync(buildsDest, { recursive: true });
-
-        const files = fs.readdirSync(distDir);
-        let debFile = '',
-          rpmFile = '';
-        files.forEach((file) => {
-          const extension = path.extname(file);
-          const newFileName = `${repoName}-${tag}${extension}`;
-          const destPath = path.join(buildsDest, newFileName);
-
-          fs.copyFileSync(path.join(distDir, file), destPath);
-
-          if (extension === '.deb') debFile = `/builds/${repoName}/${tag}/${newFileName}`;
-          if (extension === '.rpm') rpmFile = `/builds/${repoName}/${tag}/${newFileName}`;
-        });
-
-        db.prepare(
-          'UPDATE tags SET status = ?, deb_path = ?, rpm_path = ?, updated_at = CURRENT_TIMESTAMP WHERE repo = ? AND tag = ?'
-        ).run('success', debFile, rpmFile, repoName, tag);
-        logger.info({ repo: repoName, tag }, 'Build successful');
-      } else {
-        db.prepare(
-          'UPDATE tags SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE repo = ? AND tag = ?'
-        ).run('failed', repoName, tag);
-        logger.error({ repo: repoName, tag, code, output: output.trim() }, 'Build failed');
+      // Versioning
+      if (fs.existsSync(buildScriptPath)) {
+        let content = fs.readFileSync(buildScriptPath, 'utf8');
+        content = content.replace(/VERSION=".*"/, `VERSION="${tag.replace(/^v/, '')}"`);
+        fs.writeFileSync(buildScriptPath, content);
       }
-    });
+      if (fs.existsSync(nfpmPath)) {
+        let content = fs.readFileSync(nfpmPath, 'utf8');
+        content = content.replace(/version: ".*"/, `version: "${tag.replace(/^v/, '')}"`);
+        fs.writeFileSync(nfpmPath, content);
+      }
+
+      await runCommand('bash', [buildScriptRelPath], { cwd: buildDir }, `[${repoName} package]`);
+
+      const distDir = path.join(buildDir, 'dist');
+      const buildsDest = path.join(__dirname, '../../builds', repoName, tag);
+      if (!fs.existsSync(buildsDest)) fs.mkdirSync(buildsDest, { recursive: true });
+
+      const files = fs.readdirSync(distDir);
+      files.forEach((file) => {
+        const extension = path.extname(file);
+        const newFileName = `${repoName}-${tag}${extension}`;
+        const destPath = path.join(buildsDest, newFileName);
+        fs.copyFileSync(path.join(distDir, file), destPath);
+
+        if (extension === '.deb') debFile = `/builds/${repoName}/${tag}/${newFileName}`;
+        if (extension === '.rpm') rpmFile = `/builds/${repoName}/${tag}/${newFileName}`;
+      });
+    }
+
+    // 2. Docker Build Phase
+    if (repoCfg.docker) {
+      const d = repoCfg.docker;
+      const cleanTag = tag.replace(/^v/, '');
+      const registry = d.registry || 'docker.io';
+      const fullImage = `${d.image}:${cleanTag}`;
+      
+      // Docker Login
+      if (d.username && d.password) {
+        logger.info({ repo: repoName, registry }, 'Logging into Docker registry');
+        const loginProc = spawn('docker', ['login', '--username', d.username, '--password-stdin', registry]);
+        loginProc.stdin.write(d.password);
+        loginProc.stdin.end();
+        
+        await new Promise((resolve, reject) => {
+          loginProc.on('close', (code) => code === 0 ? resolve() : reject(new Error(`Docker login failed with code ${code}`)));
+        });
+      }
+
+      if (d.strategy === 'script' && d.script) {
+        await runCommand('bash', [d.script], { 
+          cwd: buildDir,
+          env: { 
+            ...process.env, 
+            DOCKER_USER: d.username, 
+            DOCKER_PASSWORD: d.password, 
+            DOCKER_REGISTRY: registry,
+            IMAGE_NAME: d.image,
+            TAG: cleanTag 
+          } 
+        }, `[${repoName} docker-script]`);
+      } else {
+        const dockerfile = d.dockerfile || 'Dockerfile';
+        const context = d.context || '.';
+        await runCommand('docker', ['build', '-t', fullImage, '-f', dockerfile, context], { cwd: buildDir }, `[${repoName} docker-build]`);
+        await runCommand('docker', ['push', fullImage], { cwd: buildDir }, `[${repoName} docker-push]`);
+      }
+      dockerImage = fullImage;
+    }
+
+    db.prepare(
+      'UPDATE tags SET status = ?, deb_path = ?, rpm_path = ?, docker_image = ?, updated_at = CURRENT_TIMESTAMP WHERE repo = ? AND tag = ?'
+    ).run('success', debFile, rpmFile, dockerImage, repoName, tag);
+    logger.info({ repo: repoName, tag }, 'Build successful');
+
   } catch (err) {
-    logger.error({ repo: repoName, tag, err: err.message }, 'Runtime error during build');
+    logger.error({ repo: repoName, tag, err: err.message, output: err.output }, 'Build failed');
     db.prepare(
       'UPDATE tags SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE repo = ? AND tag = ?'
     ).run('failed', repoName, tag);
